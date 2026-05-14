@@ -1,0 +1,42 @@
+{% extends "base.html" %}
+{% block title %}SolarCalc Pro — Home{% endblock %}
+
+{% block content %}
+<div class="home-hero">
+  <h1>⚡ SOLAR<span>CALC</span> PRO</h1>
+  <p>A professional calculation tool for electricians and solar installers.<br>Fast, accurate, built for the field.</p>
+  <a href="{{ url_for('calc.load_analysis') }}" class="hero-btn">START CALCULATING →</a>
+</div>
+
+<div class="section-label">Available Modules</div>
+<div class="module-grid">
+  <a href="{{ url_for('calc.load_analysis') }}" class="module-card">
+    <div class="mod-icon" style="background:rgba(240,165,0,0.12)">🔌</div>
+    <div>
+      <div class="mod-title">① Load Analysis</div>
+      <div class="mod-desc">Calculate total power demand, daily energy consumption and peak current from your appliance list.</div>
+    </div>
+  </a>
+  <a href="{{ url_for('calc.solar_sizing') }}" class="module-card">
+    <div class="mod-icon" style="background:rgba(45,125,210,0.12)">☀️</div>
+    <div>
+      <div class="mod-title">② Solar Panel Sizing</div>
+      <div class="mod-desc">Determine the number of panels needed and charge controller rating based on your load and region.</div>
+    </div>
+  </a>
+  <a href="{{ url_for('calc.battery_bank') }}" class="module-card">
+    <div class="mod-icon" style="background:rgba(123,94,167,0.12)">🔋</div>
+    <div>
+      <div class="mod-title">③ Battery Bank Calculator</div>
+      <div class="mod-desc">Calculate required battery capacity, depth of discharge and optimal series/parallel configuration.</div>
+    </div>
+  </a>
+  <a href="{{ url_for('calc.cable_sizing') }}" class="module-card">
+    <div class="mod-icon" style="background:rgba(26,158,143,0.12)">🔗</div>
+    <div>
+      <div class="mod-title">④ Cable Sizing</div>
+      <div class="mod-desc">Find the minimum safe cable cross-section and check voltage drop across any cable run.</div>
+    </div>
+  </a>
+</div>
+{% endblock %}

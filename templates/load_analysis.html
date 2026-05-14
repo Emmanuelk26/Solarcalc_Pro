@@ -1,0 +1,190 @@
+{% extends "base.html" %}
+{% block title %}Load Analysis — SolarCalc Pro{% endblock %}
+
+{% block steps %}
+<div class="step-bar">
+  <div class="step-pill active">① Load Analysis</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">② Solar Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">③ Battery Bank</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">④ Cable Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">⑤ Results</div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div class="icon" style="background:rgba(240,165,0,0.12)">🔌</div>
+  Load Analysis
+</div>
+<p class="page-subtitle">Add all appliances and their usage. The system calculates your total electrical demand.</p>
+
+<form method="POST" action="{{ url_for('calc.load_analysis') }}" id="loadForm">
+
+  <div class="card">
+    <div class="card-title">Appliance List</div>
+    <table class="app-table" id="appTable">
+      <thead>
+        <tr>
+          <th>Appliance / Description</th>
+          <th>Watts (W)</th>
+          <th>Quantity</th>
+          <th>Hrs / Day</th>
+          <th>Daily Wh</th>
+          <th></th>
+        </tr>
+      </thead>
+      <tbody id="appBody">
+        <!-- Default starter rows -->
+        <tr class="app-row">
+          <td><input type="text"   name="app_name[]"  value="LED Lights"  placeholder="e.g. Fridge"></td>
+          <td><input type="number" name="app_watts[]" value="10"  min="0" step="any" class="w-field"></td>
+          <td><input type="number" name="app_qty[]"   value="6"   min="1"></td>
+          <td><input type="number" name="app_hours[]" value="8"   min="0" max="24" step="0.5"></td>
+          <td><span class="wh-val" data-wh="480">480 Wh</span></td>
+          <td><button type="button" class="del-row" title="Remove row">✕</button></td>
+        </tr>
+        <tr class="app-row">
+          <td><input type="text"   name="app_name[]"  value="Refrigerator"></td>
+          <td><input type="number" name="app_watts[]" value="150" min="0" step="any" class="w-field"></td>
+          <td><input type="number" name="app_qty[]"   value="1"   min="1"></td>
+          <td><input type="number" name="app_hours[]" value="24"  min="0" max="24" step="0.5"></td>
+          <td><span class="wh-val" data-wh="3600">3,600 Wh</span></td>
+          <td><button type="button" class="del-row" title="Remove row">✕</button></td>
+        </tr>
+        <tr class="app-row">
+          <td><input type="text"   name="app_name[]"  value="Television"></td>
+          <td><input type="number" name="app_watts[]" value="80"  min="0" step="any" class="w-field"></td>
+          <td><input type="number" name="app_qty[]"   value="2"   min="1"></td>
+          <td><input type="number" name="app_hours[]" value="5"   min="0" max="24" step="0.5"></td>
+          <td><span class="wh-val" data-wh="800">800 Wh</span></td>
+          <td><button type="button" class="del-row" title="Remove row">✕</button></td>
+        </tr>
+        <tr class="app-row">
+          <td><input type="text"   name="app_name[]"  value="Ceiling Fan"></td>
+          <td><input type="number" name="app_watts[]" value="45"  min="0" step="any" class="w-field"></td>
+          <td><input type="number" name="app_qty[]"   value="3"   min="1"></td>
+          <td><input type="number" name="app_hours[]" value="12"  min="0" max="24" step="0.5"></td>
+          <td><span class="wh-val" data-wh="1620">1,620 Wh</span></td>
+          <td><button type="button" class="del-row" title="Remove row">✕</button></td>
+        </tr>
+      </tbody>
+    </table>
+    <button type="button" class="add-row" id="addRowBtn">+ Add appliance row</button>
+
+    <div class="field-grid" style="margin-top:20px">
+      <div class="field">
+        <label>System Voltage</label>
+        <select name="system_voltage">
+          <option value="12V">12V — Small systems</option>
+          <option value="24V" selected>24V — Medium systems</option>
+          <option value="48V">48V — Large systems</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Safety / Demand Factor (%)</label>
+        <input type="number" name="safety_factor" value="25" min="0" max="100">
+        <span class="hint">NEC recommends 125% of calculated load</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Live results strip (JS-powered, updated on input) -->
+  <div class="result-strip" id="liveResults">
+    <div class="result-cell">
+      <div class="val" id="res-daily">— Wh</div>
+      <div class="lbl">Daily Energy</div>
+    </div>
+    <div class="result-cell">
+      <div class="val" id="res-current">— A</div>
+      <div class="lbl">Total Current</div>
+    </div>
+    <div class="result-cell">
+      <div class="val" id="res-peak">— W</div>
+      <div class="lbl">Peak Demand (×safety)</div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <a href="{{ url_for('calc.home') }}" class="btn btn-ghost">← Home</a>
+    <button type="submit" class="btn btn-primary">Next: Solar Sizing →</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+// ── Live calculation & row management ──────────────────────────
+
+function fmt(n) {
+  return n >= 1000 ? n.toLocaleString('en', {maximumFractionDigits:0}) : n.toFixed(0);
+}
+
+function recalc() {
+  let totalWh = 0, totalPeakW = 0;
+  document.querySelectorAll('.app-row').forEach(row => {
+    const w = parseFloat(row.querySelector('[name="app_watts[]"]').value) || 0;
+    const q = parseInt(row.querySelector('[name="app_qty[]"]').value) || 0;
+    const h = parseFloat(row.querySelector('[name="app_hours[]"]').value) || 0;
+    const wh = w * q * h;
+    totalWh += wh;
+    totalPeakW += w * q;
+    const span = row.querySelector('.wh-val');
+    if (span) span.textContent = fmt(wh) + ' Wh';
+  });
+
+  const safety = (parseFloat(document.querySelector('[name="safety_factor"]').value) || 0) / 100;
+  const vRaw = document.querySelector('[name="system_voltage"]').value;
+  const v = parseInt(vRaw.replace(/\D/g,'')) || 24;
+  const factor = 1 + safety;
+
+  const safeWh = totalWh * factor;
+  const safePeak = totalPeakW * factor;
+  const current = safePeak / v;
+
+  document.getElementById('res-daily').textContent   = fmt(safeWh)  + ' Wh';
+  document.getElementById('res-current').textContent = fmt(current) + ' A';
+  document.getElementById('res-peak').textContent    = fmt(safePeak)+ ' W';
+}
+
+// Add row
+document.getElementById('addRowBtn').addEventListener('click', () => {
+  const tbody = document.getElementById('appBody');
+  const tr = document.createElement('tr');
+  tr.className = 'app-row';
+  tr.innerHTML = `
+    <td><input type="text"   name="app_name[]"  placeholder="Appliance name"></td>
+    <td><input type="number" name="app_watts[]" value="0"  min="0" step="any" class="w-field"></td>
+    <td><input type="number" name="app_qty[]"   value="1"  min="1"></td>
+    <td><input type="number" name="app_hours[]" value="1"  min="0" max="24" step="0.5"></td>
+    <td><span class="wh-val">0 Wh</span></td>
+    <td><button type="button" class="del-row" title="Remove row">✕</button></td>`;
+  tbody.appendChild(tr);
+  attachRowListeners(tr);
+  recalc();
+});
+
+// Delete row
+document.addEventListener('click', e => {
+  if (e.target.classList.contains('del-row')) {
+    e.target.closest('tr').remove();
+    recalc();
+  }
+});
+
+function attachRowListeners(row) {
+  row.querySelectorAll('input').forEach(inp => inp.addEventListener('input', recalc));
+}
+
+// Attach to existing rows + global selects
+document.querySelectorAll('.app-row').forEach(attachRowListeners);
+document.querySelector('[name="system_voltage"]').addEventListener('change', recalc);
+document.querySelector('[name="safety_factor"]').addEventListener('input', recalc);
+
+// Initial calculation
+recalc();
+</script>
+{% endblock %}

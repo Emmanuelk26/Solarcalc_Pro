@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Solar Sizing — SolarCalc Pro{% endblock %}
+
+{% block steps %}
+<div class="step-bar">
+  <div class="step-pill done">✓ Load Analysis</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill active">② Solar Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">③ Battery Bank</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">④ Cable Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">⑤ Results</div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div class="icon" style="background:rgba(45,125,210,0.12)">☀️</div>
+  Solar Panel Sizing
+</div>
+<p class="page-subtitle">Calculate how many panels are needed and the charge controller rating for your system.</p>
+
+<div class="carry-banner">
+  ✅ Carried forward from Load Analysis —
+  <span class="carry-val">Daily Load: {{ "{:,.0f}".format(load.total_daily_wh_with_safety) }} Wh</span>
+  <span class="carry-val">System Voltage: {{ load.system_voltage }}V</span>
+</div>
+
+<form method="POST" action="{{ url_for('calc.solar_sizing') }}">
+
+  <div class="card">
+    <div class="card-title">Solar Parameters</div>
+    <div class="field-grid">
+      <div class="field">
+        <label>Peak Sun Hours (PSH)</label>
+        <input type="number" name="psh" value="{{ prev.peak_sun_hours or 5.5 }}" step="0.1" min="1" max="12">
+        <span class="hint">Average daily sun hours for your region</span>
+      </div>
+      <div class="field">
+        <label>Solar Panel Wattage (W)</label>
+        <select name="panel_wattage">
+          {% for w in [100,150,200,250,300,350,400,450,500,550,600] %}
+          <option value="{{ w }}W" {% if (prev.panel_wattage or 400) == w %}selected{% endif %}>{{ w }}W Panel</option>
+          {% endfor %}
+          <option value="custom">Custom wattage</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Custom Panel Wattage (W)</label>
+        <input type="number" name="custom_panel_w" placeholder="Leave blank if using list above" min="1">
+        <span class="hint">Overrides the dropdown selection</span>
+      </div>
+      <div class="field">
+        <label>System Efficiency / Derating (%)</label>
+        <input type="number" name="system_efficiency" value="{{ prev.system_efficiency_pct or 80 }}" min="50" max="100">
+        <span class="hint">Accounts for dust, temperature, wiring losses</span>
+      </div>
+      <div class="field">
+        <label>Inverter Efficiency (%)</label>
+        <input type="number" name="inverter_efficiency" value="{{ prev.inverter_efficiency_pct or 90 }}" min="50" max="100">
+      </div>
+    </div>
+  </div>
+
+  <!-- Live preview (computed client-side) -->
+  <div class="result-strip">
+    <div class="result-cell">
+      <div class="val" id="res-panels">—</div>
+      <div class="lbl">Panels Required</div>
+    </div>
+    <div class="result-cell">
+      <div class="val" id="res-array">— W</div>
+      <div class="lbl">Array Capacity</div>
+    </div>
+    <div class="result-cell">
+      <div class="val" id="res-cc">— A</div>
+      <div class="lbl">Charge Controller</div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <a href="{{ url_for('calc.load_analysis') }}" class="btn btn-back">← Back</a>
+    <button type="submit" class="btn btn-primary">Next: Battery Bank →</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const DAILY_WH = {{ load.total_daily_wh_with_safety }};
+const SYS_V    = {{ load.system_voltage }};
+const CC_SIZES = [10,20,30,40,50,60,80,100,120,150,200];
+
+function nextCC(a) {
+  for (const s of CC_SIZES) if (s >= a) return s;
+  return Math.ceil(a/10)*10;
+}
+
+function recalc() {
+  const psh     = parseFloat(document.querySelector('[name="psh"]').value) || 5.5;
+  const sysEff  = (parseFloat(document.querySelector('[name="system_efficiency"]').value) || 80) / 100;
+  const invEff  = (parseFloat(document.querySelector('[name="inverter_efficiency"]').value) || 90) / 100;
+  const customW = parseFloat(document.querySelector('[name="custom_panel_w"]').value);
+  let panelW = customW || parseInt(document.querySelector('[name="panel_wattage"]').value) || 400;
+
+  const effWh    = DAILY_WH / (sysEff * invEff);
+  const arrayW   = effWh / psh;
+  const panels   = Math.ceil(arrayW / panelW);
+  const totalW   = panels * panelW;
+  const arrayCur = totalW / SYS_V;
+  const cc       = nextCC(arrayCur * 1.25);
+
+  document.getElementById('res-panels').textContent = panels;
+  document.getElementById('res-array').textContent  = (totalW/1000).toFixed(1) + ' kW';
+  document.getElementById('res-cc').textContent     = cc + ' A MPPT';
+}
+
+document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', recalc));
+recalc();
+</script>
+{% endblock %}

@@ -1,0 +1,133 @@
+{% extends "base.html" %}
+{% block title %}Cable Sizing — SolarCalc Pro{% endblock %}
+
+{% block steps %}
+<div class="step-bar">
+  <div class="step-pill done">✓ Load Analysis</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill done">✓ Solar Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill done">✓ Battery Bank</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill active">④ Cable Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">⑤ Results</div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div class="icon" style="background:rgba(26,158,143,0.12)">🔗</div>
+  Cable Sizing
+</div>
+<p class="page-subtitle">Calculate voltage drop and minimum safe cable cross-sectional area for your cable runs.</p>
+
+<div class="carry-banner">
+  ✅ Carried forward —
+  <span class="carry-val">System Current: {{ load.total_current_a }} A</span>
+  <span class="carry-val">Voltage: {{ load.system_voltage }}V</span>
+</div>
+
+<form method="POST" action="{{ url_for('calc.cable_sizing') }}">
+
+  <div class="card">
+    <div class="card-title">Cable Run Details</div>
+    <div class="field-grid">
+      <div class="field">
+        <label>Cable Run Length (m)</label>
+        <input type="number" name="cable_length" value="{{ prev.cable_length_m or 10 }}" min="0.5" step="0.5">
+        <span class="hint">One-way distance (formula doubles for return path)</span>
+      </div>
+      <div class="field">
+        <label>Load Current (A)</label>
+        <input type="number" name="load_current" value="{{ prev.load_current_a or load.total_current_a }}" min="1" step="0.5">
+        <span class="hint">Pre-filled from Load Analysis — adjust if needed</span>
+      </div>
+      <div class="field">
+        <label>Max Allowable Voltage Drop (%)</label>
+        <input type="number" name="max_vdrop_pct" value="{{ prev.max_vdrop_pct or 3 }}" min="1" max="10" step="0.5">
+        <span class="hint">Typically 3% DC, 5% AC circuits</span>
+      </div>
+      <div class="field">
+        <label>Conductor Material</label>
+        <select name="conductor" id="conductorSel">
+          <option value="Copper" {% if (prev.conductor or 'Copper') == 'Copper' %}selected{% endif %}>Copper (ρ = 0.0172 Ω·mm²/m)</option>
+          <option value="Aluminium" {% if prev.conductor == 'Aluminium' %}selected{% endif %}>Aluminium (ρ = 0.0282 Ω·mm²/m)</option>
+        </select>
+      </div>
+      <div class="field">
+        <label>Installation Method</label>
+        <select name="installation">
+          {% for m in ['Clipped direct to surface','In conduit / trunking','Underground'] %}
+          <option {% if (prev.installation or 'Clipped direct to surface') == m %}selected{% endif %}>{{ m }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Ambient Temperature (°C)</label>
+        <input type="number" name="ambient_temp" value="{{ prev.ambient_temp_c or 30 }}" min="25" max="60">
+      </div>
+    </div>
+  </div>
+
+  <div class="result-strip">
+    <div class="result-cell">
+      <div class="val" id="res-csa">— mm²</div>
+      <div class="lbl">Min Cable Size</div>
+    </div>
+    <div class="result-cell">
+      <div class="val" id="res-vdrop">— V</div>
+      <div class="lbl">Voltage Drop</div>
+    </div>
+    <div class="result-cell">
+      <div class="val" id="res-pct">— %</div>
+      <div class="lbl">Drop % Status</div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <a href="{{ url_for('calc.battery_bank') }}" class="btn btn-back">← Back</a>
+    <button type="submit" class="btn btn-primary">View Full Results →</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const SYS_V   = {{ load.system_voltage }};
+const SIZES   = [1.5,2.5,4,6,10,16,25,35,50,70,95,120,150,185,240,300];
+const RHO     = { Copper: 0.0172, Aluminium: 0.0282 };
+
+function nextStd(req) {
+  for (const s of SIZES) if (s >= req) return s;
+  return SIZES[SIZES.length-1];
+}
+
+function recalc() {
+  const I     = parseFloat(document.querySelector('[name="load_current"]').value)    || 100;
+  const L     = parseFloat(document.querySelector('[name="cable_length"]').value)    || 10;
+  const maxPct= parseFloat(document.querySelector('[name="max_vdrop_pct"]').value)   || 3;
+  const cond  = document.querySelector('[name="conductor"]').value;
+  const rho   = RHO[cond] || 0.0172;
+
+  const vMax  = SYS_V * maxPct / 100;
+  const csaReq= (2 * rho * L * I) / vMax;
+  const csa   = nextStd(csaReq);
+
+  const R     = (2 * rho * L) / csa;
+  const vDrop = I * R;
+  const pct   = (vDrop / SYS_V) * 100;
+  const safe  = pct <= maxPct;
+
+  document.getElementById('res-csa').textContent   = csa + ' mm²';
+  document.getElementById('res-vdrop').textContent = vDrop.toFixed(2) + ' V';
+
+  const pctEl = document.getElementById('res-pct');
+  pctEl.textContent = pct.toFixed(1) + '% ' + (safe ? '✓' : '✗');
+  pctEl.style.color = safe ? 'var(--green)' : 'var(--red)';
+}
+
+document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', recalc));
+recalc();
+</script>
+{% endblock %}

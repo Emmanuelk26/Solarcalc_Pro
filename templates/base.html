@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>{% block title %}SolarCalc Pro{% endblock %}</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Barlow+Condensed:wght@400;600;700;800&family=Barlow:wght@300;400;500;600&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="{{ url_for('static', filename='css/style.css') }}">
+{% block head %}{% endblock %}
+</head>
+<body>
+
+<!-- ── NAVBAR ── -->
+<nav class="navbar">
+  <a href="{{ url_for('calc.home') }}" class="nav-brand">⚡ SOLAR<span>CALC</span> PRO</a>
+  <div class="nav-links">
+    <a href="{{ url_for('calc.load_analysis') }}" class="nav-link {% if request.endpoint == 'calc.load_analysis' %}active{% endif %}">
+      🔌 Load Analysis
+    </a>
+    <a href="{{ url_for('calc.solar_sizing') }}" class="nav-link {% if request.endpoint == 'calc.solar_sizing' %}active{% endif %}">
+      ☀️ Solar Sizing
+    </a>
+    <a href="{{ url_for('calc.battery_bank') }}" class="nav-link {% if request.endpoint == 'calc.battery_bank' %}active{% endif %}">
+      🔋 Battery Bank
+    </a>
+    <a href="{{ url_for('calc.cable_sizing') }}" class="nav-link {% if request.endpoint == 'calc.cable_sizing' %}active{% endif %}">
+      🔗 Cable Sizing
+    </a>
+    <a href="{{ url_for('calc.results') }}" class="nav-link {% if request.endpoint == 'calc.results' %}active{% endif %}">
+      📄 Results
+    </a>
+    <a href="{{ url_for('calc.reset') }}" class="nav-link nav-reset" title="Start over">↺ Reset</a>
+  </div>
+</nav>
+
+<!-- ── STEP INDICATOR ── -->
+{% block steps %}{% endblock %}
+
+<!-- ── MAIN CONTENT ── -->
+<main class="main-wrap">
+  {% block content %}{% endblock %}
+</main>
+
+{% block scripts %}{% endblock %}
+</body>
+</html>

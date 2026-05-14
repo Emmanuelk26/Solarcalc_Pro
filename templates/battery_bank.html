@@ -1,0 +1,123 @@
+{% extends "base.html" %}
+{% block title %}Battery Bank — SolarCalc Pro{% endblock %}
+
+{% block steps %}
+<div class="step-bar">
+  <div class="step-pill done">✓ Load Analysis</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill done">✓ Solar Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill active">③ Battery Bank</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">④ Cable Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill">⑤ Results</div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div class="icon" style="background:rgba(123,94,167,0.12)">🔋</div>
+  Battery Bank Calculator
+</div>
+<p class="page-subtitle">Determine total battery capacity and the best series/parallel configuration for your system.</p>
+
+<div class="carry-banner">
+  ✅ Carried forward —
+  <span class="carry-val">Daily Load: {{ "{:,.0f}".format(load.total_daily_wh_with_safety) }} Wh</span>
+  <span class="carry-val">System Voltage: {{ load.system_voltage }}V</span>
+</div>
+
+<form method="POST" action="{{ url_for('calc.battery_bank') }}">
+
+  <div class="card">
+    <div class="card-title">Battery Parameters</div>
+    <div class="field-grid">
+      <div class="field">
+        <label>Days of Autonomy</label>
+        <input type="number" name="days_autonomy" value="{{ prev.days_autonomy or 2 }}" min="1" max="14">
+        <span class="hint">Days the system must run without sunlight</span>
+      </div>
+      <div class="field">
+        <label>Depth of Discharge (%)</label>
+        <input type="number" name="dod_pct" value="{{ prev.dod_pct or 50 }}" min="10" max="100" id="dodInput">
+        <span class="hint" id="dodHint">Lead-acid: 50% &nbsp;|&nbsp; LiFePO4: 80%</span>
+      </div>
+      <div class="field">
+        <label>Battery Type</label>
+        <select name="battery_type" id="battType">
+          {% for bt in ['Lead-Acid','AGM','LiFePO4 (Lithium)'] %}
+          <option {% if (prev.battery_type or 'Lead-Acid') == bt %}selected{% endif %}>{{ bt }}</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field">
+        <label>Single Battery Voltage (V)</label>
+        <select name="battery_voltage">
+          {% for bv in [2, 6, 12, 24] %}
+          <option value="{{ bv }}V" {% if (prev.battery_voltage or 12) == bv %}selected{% endif %}>{{ bv }}V</option>
+          {% endfor %}
+        </select>
+      </div>
+      <div class="field span2">
+        <label>Single Battery Capacity (Ah)</label>
+        <input type="number" name="battery_ah" value="{{ prev.battery_ah or 200 }}" min="1">
+      </div>
+    </div>
+  </div>
+
+  <div class="result-strip">
+    <div class="result-cell">
+      <div class="val" id="res-ah">— Ah</div>
+      <div class="lbl">Capacity Needed</div>
+    </div>
+    <div class="result-cell">
+      <div class="val" id="res-config">—</div>
+      <div class="lbl">Configuration</div>
+    </div>
+    <div class="result-cell">
+      <div class="val" id="res-total">— Units</div>
+      <div class="lbl">Total Batteries</div>
+    </div>
+  </div>
+
+  <div class="btn-row">
+    <a href="{{ url_for('calc.solar_sizing') }}" class="btn btn-back">← Back</a>
+    <button type="submit" class="btn btn-primary">Next: Cable Sizing →</button>
+  </div>
+</form>
+{% endblock %}
+
+{% block scripts %}
+<script>
+const DAILY_WH = {{ load.total_daily_wh_with_safety }};
+const SYS_V    = {{ load.system_voltage }};
+
+// Auto-set recommended DoD when battery type changes
+document.getElementById('battType').addEventListener('change', function() {
+  const dod = this.value.includes('LiFePO4') ? 80 : 50;
+  document.getElementById('dodInput').value = dod;
+  recalc();
+});
+
+function recalc() {
+  const days   = parseInt(document.querySelector('[name="days_autonomy"]').value) || 2;
+  const dod    = (parseFloat(document.querySelector('[name="dod_pct"]').value) || 50) / 100;
+  const bvRaw  = document.querySelector('[name="battery_voltage"]').value;
+  const bv     = parseInt(bvRaw) || 12;
+  const bAh    = parseFloat(document.querySelector('[name="battery_ah"]').value) || 200;
+
+  const reqAh   = (DAILY_WH * days) / SYS_V / dod;
+  const series  = Math.max(1, Math.round(SYS_V / bv));
+  const parallel= Math.ceil(reqAh / bAh);
+  const total   = series * parallel;
+
+  document.getElementById('res-ah').textContent     = Math.round(reqAh).toLocaleString() + ' Ah';
+  document.getElementById('res-config').textContent = series + 'S × ' + parallel + 'P';
+  document.getElementById('res-total').textContent  = total + ' Units';
+}
+
+document.querySelectorAll('input, select').forEach(el => el.addEventListener('input', recalc));
+recalc();
+</script>
+{% endblock %}

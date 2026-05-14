@@ -1,0 +1,122 @@
+{% extends "base.html" %}
+{% block title %}Results — SolarCalc Pro{% endblock %}
+
+{% block steps %}
+<div class="step-bar">
+  <div class="step-pill done">✓ Load Analysis</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill done">✓ Solar Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill done">✓ Battery Bank</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill done">✓ Cable Sizing</div>
+  <div class="step-arrow">→</div>
+  <div class="step-pill active">⑤ Results</div>
+</div>
+{% endblock %}
+
+{% block content %}
+<div class="page-title">
+  <div class="icon" style="background:rgba(39,174,96,0.12)">📄</div>
+  Full Results &amp; Report
+</div>
+<p class="page-subtitle">Summary of all calculations. Use the print button to generate a clean PDF report.</p>
+
+<!-- Print header (only visible when printing) -->
+<div class="print-header">
+  <h1>⚡ SolarCalc Pro — Installation Report</h1>
+  <p>Generated: <strong id="printDate"></strong></p>
+</div>
+
+<!-- ── Load Analysis ── -->
+<div class="result-module gold">
+  <div class="res-mod-title" style="color:var(--gold)">🔌 Load Analysis</div>
+  <div class="res-row"><span class="lbl">System Voltage</span><span class="val" style="color:var(--gold)">{{ load.system_voltage }}V</span></div>
+  <div class="res-row"><span class="lbl">Total Daily Energy (with safety factor)</span><span class="val" style="color:var(--gold)">{{ "{:,.0f}".format(load.total_daily_wh_with_safety) }} Wh</span></div>
+  <div class="res-row"><span class="lbl">Total Daily Energy (base)</span><span class="val" style="color:var(--gold)">{{ "{:,.0f}".format(load.total_daily_wh) }} Wh</span></div>
+  <div class="res-row"><span class="lbl">Peak Demand (with safety factor)</span><span class="val" style="color:var(--gold)">{{ "{:,.0f}".format(load.peak_watts_with_safety) }} W</span></div>
+  <div class="res-row"><span class="lbl">Total System Current</span><span class="val" style="color:var(--gold)">{{ load.total_current_a }} A @ {{ load.system_voltage }}V</span></div>
+  <div class="res-row"><span class="lbl">Recommended Main Breaker Size</span><span class="val" style="color:var(--gold)">{{ load.recommended_breaker_a|int }} A</span></div>
+
+  <!-- Appliance breakdown — printed only -->
+  <div class="print-only" style="margin-top:14px">
+    <table class="print-table">
+      <thead><tr><th>Appliance</th><th>W</th><th>Qty</th><th>Hrs/Day</th><th>Daily Wh</th></tr></thead>
+      <tbody>
+      {% for a in load.appliances %}
+        <tr>
+          <td>{{ a.name }}</td>
+          <td>{{ a.watts }}</td>
+          <td>{{ a.quantity }}</td>
+          <td>{{ a.hours_per_day }}</td>
+          <td>{{ "{:,.0f}".format(a.daily_wh) }} Wh</td>
+        </tr>
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<!-- ── Solar Sizing ── -->
+<div class="result-module blue">
+  <div class="res-mod-title" style="color:var(--blue)">☀️ Solar Sizing</div>
+  <div class="res-row"><span class="lbl">Peak Sun Hours</span><span class="val" style="color:var(--blue)">{{ solar.peak_sun_hours }} hrs/day</span></div>
+  <div class="res-row"><span class="lbl">Panel Rating</span><span class="val" style="color:var(--blue)">{{ solar.panel_wattage }}W</span></div>
+  <div class="res-row"><span class="lbl">Panels Required</span><span class="val" style="color:var(--blue)">{{ solar.panels_required }} × {{ solar.panel_wattage }}W panels</span></div>
+  <div class="res-row"><span class="lbl">Total Array Capacity</span><span class="val" style="color:var(--blue)">{{ "{:,.0f}".format(solar.total_array_watts) }} W</span></div>
+  <div class="res-row"><span class="lbl">Charge Controller Rating</span><span class="val" style="color:var(--blue)">{{ solar.charge_controller_a|int }} A MPPT</span></div>
+  <div class="res-row"><span class="lbl">System Derating</span><span class="val" style="color:var(--blue)">{{ solar.system_efficiency_pct }}% system / {{ solar.inverter_efficiency_pct }}% inverter</span></div>
+</div>
+
+<!-- ── Battery Bank ── -->
+<div class="result-module purple">
+  <div class="res-mod-title" style="color:var(--purple)">🔋 Battery Bank</div>
+  <div class="res-row"><span class="lbl">Days of Autonomy</span><span class="val" style="color:var(--purple)">{{ battery.days_autonomy }} day(s)</span></div>
+  <div class="res-row"><span class="lbl">Battery Type</span><span class="val" style="color:var(--purple)">{{ battery.battery_type }}</span></div>
+  <div class="res-row"><span class="lbl">Total Capacity Required</span><span class="val" style="color:var(--purple)">{{ "{:,.0f}".format(battery.required_ah) }} Ah @ {{ battery.system_voltage }}V</span></div>
+  <div class="res-row"><span class="lbl">Battery Configuration</span><span class="val" style="color:var(--purple)">{{ battery.series_count }} Series × {{ battery.parallel_strings }} Parallel</span></div>
+  <div class="res-row"><span class="lbl">Total Batteries</span><span class="val" style="color:var(--purple)">{{ battery.total_batteries }} × {{ battery.battery_ah }}Ah / {{ battery.battery_voltage }}V</span></div>
+  <div class="res-row"><span class="lbl">Depth of Discharge</span><span class="val" style="color:var(--purple)">{{ battery.dod_pct }}% — {{ battery.battery_type }}</span></div>
+</div>
+
+<!-- ── Cable Sizing ── -->
+<div class="result-module teal">
+  <div class="res-mod-title" style="color:var(--teal)">🔗 Cable Sizing</div>
+  <div class="res-row"><span class="lbl">Cable Run Length</span><span class="val" style="color:var(--teal)">{{ cable.cable_length_m }} m (one-way)</span></div>
+  <div class="res-row"><span class="lbl">Load Current</span><span class="val" style="color:var(--teal)">{{ cable.load_current_a }} A</span></div>
+  <div class="res-row"><span class="lbl">Conductor Material</span><span class="val" style="color:var(--teal)">{{ cable.conductor }}</span></div>
+  <div class="res-row"><span class="lbl">Installation Method</span><span class="val" style="color:var(--teal)">{{ cable.installation }}</span></div>
+  <div class="res-row"><span class="lbl">Minimum Cable Cross-Section</span><span class="val" style="color:var(--teal)">{{ cable.selected_csa_mm2 }} mm² {{ cable.conductor }}</span></div>
+  <div class="res-row"><span class="lbl">Calculated Voltage Drop</span><span class="val" style="color:var(--teal)">{{ cable.actual_vdrop_v }} V</span></div>
+  <div class="res-row">
+    <span class="lbl">Voltage Drop %</span>
+    <span class="val" style="color:{% if cable.is_safe %}var(--green){% else %}var(--red){% endif %}">
+      {{ cable.actual_vdrop_pct }}% — {{ cable.safety_label }}
+    </span>
+  </div>
+</div>
+
+<!-- ── Export Bar ── -->
+<div class="export-bar no-print">
+  <div>
+    <strong>Report ready</strong>
+    <p>Click Print Report to open the system print dialog — choose "Save as PDF" to create a file.</p>
+  </div>
+  <div style="display:flex;gap:10px;flex-wrap:wrap">
+    <a href="{{ url_for('calc.reset') }}" class="btn btn-ghost">↺ New Calculation</a>
+    <button class="btn-export" onclick="printReport()">🖨️ Print / Save PDF</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+document.getElementById('printDate').textContent = new Date().toLocaleDateString('en-GB', {
+  day:'numeric', month:'long', year:'numeric'
+});
+
+function printReport() {
+  window.print();
+}
+</script>
+{% endblock %}
