@@ -20,3 +20,4 @@ def create_app(env: str = "default") -> Flask:
 if __name__ == "__main__":
     app = create_app("development")
     app.run(debug=True, host="0.0.0.0", port=5000)
+#jwofuwbev weovwd vw0vwhv v wvh -pwv wv vwrpwru wr upw9ru wp r9u  
